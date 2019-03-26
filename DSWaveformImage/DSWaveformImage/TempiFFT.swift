@@ -33,13 +33,18 @@
 import Foundation
 import Accelerate
 
-@objc enum TempiFFTWindowType: NSInteger {
+struct FFTResult {
+    let magnitudes: [Float]
+    let frequencies: [Float]
+}
+
+enum TempiFFTWindowType: NSInteger {
     case none
     case hanning
     case hamming
 }
 
-@objc class TempiFFT : NSObject {
+class TempiFFT : NSObject {
 
     /// The length of the sample buffer we'll be analyzing.
     private(set) var size: Int
@@ -182,7 +187,7 @@ import Accelerate
     }
 
     /// Applies logical banding on top of the spectrum data. The bands are spaced linearly throughout the spectrum.
-    func calculateLinearBands(minFrequency: Float, maxFrequency: Float, numberOfBands: Int) {
+    func calculateLinearBands(minFrequency: Float, maxFrequency: Float, numberOfBands: Int) -> FFTResult {
         assert(hasPerformedFFT, "*** Perform the FFT first.")
 
         let actualMaxFrequency = min(self.nyquistFrequency, maxFrequency)
@@ -211,6 +216,8 @@ import Accelerate
 
         self.bandMinFreq = self.bandFrequencies[0]
         self.bandMaxFreq = self.bandFrequencies.last
+        
+        return FFTResult(magnitudes: bandMagnitudes, frequencies: bandFrequencies)
     }
 
     private func magIndexForFreq(_ freq: Float) -> Int {

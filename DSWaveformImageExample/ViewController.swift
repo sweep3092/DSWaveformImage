@@ -17,7 +17,7 @@ class ViewController: UIViewController {
 
     override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
-
+        
         let waveformImageDrawer = WaveformImageDrawer()
         let audioURL = Bundle.main.url(forResource: "example_sound_2", withExtension: "m4a")!
         let topWaveformImage = waveformImageDrawer.waveformImage(fromAudioAt: audioURL,

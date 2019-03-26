@@ -1,7 +1,12 @@
 import Foundation
 import AVFoundation
 
-public struct WaveformImageDrawer {
+// TODO: think about naming better and move into own file; we DO want to stay backwards compatible
+public protocol ImageDrawer {
+    func waveformImage(from waveform: Waveform, with configuration: WaveformConfiguration) -> UIImage?
+}
+
+public struct WaveformImageDrawer: ImageDrawer {
     public init() {}
 
     // swiftlint:disable function_parameter_count

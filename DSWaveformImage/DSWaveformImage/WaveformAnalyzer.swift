@@ -11,9 +11,10 @@ import Foundation
 import Accelerate
 import AVFoundation
 
-struct WaveformAnalysis {
+// TODO: can we have this not be public? Or at least not exposing TempiFFT? That would also need removal of @objc in TempiFFT
+public struct WaveformAnalysis {
     let amplitudes: [Float]
-    let fft: [TempiFFT]?
+    let fft: [FFTResult]?
 }
 
 class WaveformAnalyzer {
@@ -47,7 +48,7 @@ fileprivate extension WaveformAnalyzer {
                  downsampledTo targetSampleCount: Int,
                  fftBands: Int?) -> WaveformAnalysis {
         var outputSamples = [Float]()
-        var outputFFT = fftBands == nil ? nil : [TempiFFT]()
+        var outputFFT = fftBands == nil ? nil : [FFTResult]()
         var sampleBuffer = Data()
         var sampleBufferFFT = Data()
 
@@ -136,8 +137,8 @@ fileprivate extension WaveformAnalyzer {
     private func process(_ sampleBuffer: Data,
                          from assetReader: AVAssetReader,
                          samplesPerFFT: Int,
-                         fftBands: Int) -> [TempiFFT] {
-        var ffts = [TempiFFT]()
+                         fftBands: Int) -> [FFTResult] {
+        var ffts = [FFTResult]()
         let sampleLength = sampleBuffer.count / MemoryLayout<Int16>.size
         sampleBuffer.withUnsafeBytes { (samples: UnsafePointer<Int16>) in
             let samplesToProcess = vDSP_Length(sampleLength)
@@ -146,14 +147,16 @@ fileprivate extension WaveformAnalyzer {
             vDSP_vflt16(samples, 1, &processingBuffer, 1, samplesToProcess) // convert 16bit int to float
 
             repeat {
-                let fftBuffer = processingBuffer[0..<samplesPerFFT]
-                let fft = TempiFFT(withSize: samplesPerFFT, sampleRate: 44100.0)
-                fft.windowType = TempiFFTWindowType.hanning
-                fft.fftForward(Array(fftBuffer))
-                fft.calculateLinearBands(minFrequency: 0, maxFrequency: fft.nyquistFrequency, numberOfBands: fftBands)
-                ffts.append(fft)
-
-                processingBuffer.removeFirst(samplesPerFFT)
+                autoreleasepool() {
+                    let fftBuffer = processingBuffer[0..<samplesPerFFT]
+                    let fft = TempiFFT(withSize: samplesPerFFT, sampleRate: 44100.0)
+                    fft.windowType = TempiFFTWindowType.hanning
+                    fft.fftForward(Array(fftBuffer))
+                    let result = fft.calculateLinearBands(minFrequency: 0, maxFrequency: fft.nyquistFrequency, numberOfBands: fftBands)
+                    ffts.append(result)
+                    
+                    processingBuffer.removeFirst(samplesPerFFT)                    
+                }
             } while processingBuffer.count >= samplesPerFFT
         }
         return ffts
