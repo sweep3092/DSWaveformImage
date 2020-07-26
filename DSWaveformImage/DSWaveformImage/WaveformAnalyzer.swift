@@ -93,11 +93,14 @@ fileprivate extension WaveformAnalyzer {
         var sampleBufferFFT = Data()
 
         // read upfront to avoid frequent re-calculation (and memory bloat from C-bridging)
-        let samplesPerPixel = max(1, totalSamples / targetSampleCount)
+        let samplesPerPixelWithDecimal = max(1, Float(totalSamples) / Float(targetSampleCount))
         let samplesPerFFT = 4096 // ~100ms at 44.1kHz, rounded to closest pow(2) for FFT
+        var samplesPerPixel = 0
+        var counter: Float = 0
 
         self.assetReader.startReading()
         while self.assetReader.status == .reading {
+            counter += 1
             let trackOutput = assetReader.outputs.first!
 
             guard let nextSampleBuffer = trackOutput.copyNextSampleBuffer(),
@@ -112,6 +115,7 @@ fileprivate extension WaveformAnalyzer {
             sampleBufferFFT.append(UnsafeBufferPointer(start: readBufferPointer, count: readBufferLength))
             CMSampleBufferInvalidate(nextSampleBuffer)
 
+            samplesPerPixel = Int(counter * samplesPerPixelWithDecimal) - Int((counter - 1) * samplesPerPixelWithDecimal)
             let processedSamples = process(sampleBuffer, from: assetReader, downsampleTo: samplesPerPixel)
             outputSamples += processedSamples
 
@@ -130,6 +134,7 @@ fileprivate extension WaveformAnalyzer {
         // if we don't have enough pixels yet,
         // process leftover samples with padding (to reach multiple of samplesPerPixel for vDSP_desamp)
         if outputSamples.count < targetSampleCount {
+            samplesPerPixel = Int(samplesPerPixelWithDecimal)
             let missingSampleCount = (targetSampleCount - outputSamples.count) * samplesPerPixel
             let backfillPaddingSampleCount = missingSampleCount - (sampleBuffer.count / MemoryLayout<Int16>.size)
             let backfillPaddingSampleCount16 = backfillPaddingSampleCount * MemoryLayout<Int16>.size
